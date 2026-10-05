@@ -78,6 +78,8 @@ From the sandbox snapshot of 2026-09-30 (reproduce with `pytest`):
 
 ## Quick start
 
+Requires Python 3.10+.
+
 ```bash
 pip install -r requirements.txt
 pytest -q                                   # 10 tests, offline
@@ -90,6 +92,7 @@ Environment variables:
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `OAH_FHIR_BASE` | `https://sandbox.hl7europe.eu/oneaquahealth/fhir` | FHIR server implementing the OAH IG to read from (and write to, if enabled) |
 | `OAH_SOURCE` | `auto` | `live` (sandbox), `snapshot` (bundled copy) or `auto` (live, fall back to snapshot) |
 | `ANTHROPIC_API_KEY` | – | Enables the chat agent in the web console |
 | `OAH_AGENT_MODEL` | `claude-sonnet-5-5` | Model for the console agent |
@@ -129,6 +132,7 @@ Comparisons use a tolerance of half a unit of the least precise published decima
 
 - HL7 FHIR R4 (4.0.1); OneAquaHealth FHIR IG (`hl7-eu/oah`, commit `b907cf08`): `LocationOah`, `ObservationIndicatorsOah`, `ObservationHealthMeasureOah`, `GroupOah`, `TemporaryOahSystem`
 - FHIR `Provenance` with participant types `author` (citizen) and `assembler` (AI)
+- The citizen write-back transaction Bundle is validated in the test suite with fhir.resources R4B models, which are structurally identical to R4 for Observation, Provenance and Bundle
 - `observation-statistics` CodeSystem, UCUM units
 - Model Context Protocol (MCP) for agent interoperability
 
