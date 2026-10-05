@@ -150,6 +150,7 @@ def one_health_snapshot(city: str) -> dict:
                    "range": [min(vals), max(vals)] if vals else None,
                    "trust": sorted({r.trust.level for r in group}),
                    "caveats": sorted({x for r in group for x in r.trust.reasons if not x.startswith("Passed")})[:3],
+                   "reference": r0.reference,
                    "fhir_refs": [r.fhir_ref for r in group][:6]}
             summary.append(row)
             ref = r0.reference

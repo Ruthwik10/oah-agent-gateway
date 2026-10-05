@@ -83,7 +83,7 @@ Requires Python 3.10+.
 
 ```bash
 pip install -r requirements.txt
-pytest -q                                   # 11 tests, offline
+pytest -q                                   # 14 tests, offline
 streamlit run app.py                        # web console (http://localhost:8501)
 python -m oah_gateway.server                # MCP server over stdio
 python -m oah_gateway.server --http         # MCP over HTTP at http://localhost:8765/mcp

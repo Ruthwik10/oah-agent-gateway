@@ -43,6 +43,13 @@ def test_snapshot_never_returns_unsafe_values_as_latest():
     assert "cannot establish" in snap["evidence_limits"]
 
 
+def test_one_health_summary_keeps_reference_context():
+    snap = tools.one_health_snapshot("Benevento")
+    no2 = next(row for row in snap["domains"]["air"]["latest_safe_values"] if row["code"] == "no2")
+    assert no2["reference"]["source"].startswith("WHO 2021")
+    assert no2["fhir_refs"] and all(ref.startswith("Observation/") for ref in no2["fhir_refs"])
+
+
 def test_every_value_is_traceable_to_fhir():
     res = tools.get_indicator("Benevento", "pm10")
     assert res["n"] > 0
@@ -104,3 +111,48 @@ def test_nvidia_agent_loop_calls_gateway_tools():
     assert trace[0][0] == "one_health_snapshot" and "domains" in trace[0][2]
     sent = fake.chat.completions.calls[0]
     assert sent["tools"][0]["type"] == "function" and msgs[0]["role"] == "system"
+
+
+def test_streamlit_judge_view_renders_snapshot_and_trust_trace():
+    from pathlib import Path
+
+    from streamlit.testing.v1 import AppTest
+
+    app = Path(__file__).resolve().parents[1] / "app.py"
+    at = AppTest.from_file(str(app), default_timeout=45).run()
+    assert not at.exception
+    assert [(m.label, m.value) for m in at.metric] == [
+        ("Observations", "450"), ("Official records", "385"), ("OK", "120"),
+        ("CAUTION", "210"), ("DO NOT USE", "120"),
+    ]
+    assert at.radio[0].options == ["Crete", "Benevento"]
+
+    at.selectbox[0].select("Obs-Almyros-TemperatureWater-2013").run()
+    assert not at.exception
+    rendered = "\n".join(element.value for element in at.markdown)
+    assert "Trust Trace" in rendered
+    assert "198,000" in rendered and "19.8" in rendered and "10,000×" in rendered
+    assert "Observation/Obs-Almyros-TemperatureWater-2013" in rendered
+    assert any("hypothesis only" in message.value.lower() for message in at.info)
+
+
+def test_streamlit_agent_answer_shows_gateway_evidence():
+    from pathlib import Path
+
+    from streamlit.testing.v1 import AppTest
+
+    app = Path(__file__).resolve().parents[1] / "app.py"
+    at = AppTest.from_file(str(app), default_timeout=45).run()
+    trace = [("one_health_snapshot", {"city": "Benevento"}, tools.one_health_snapshot("Benevento"))]
+    at.session_state.chat = [
+        ("user", "Benevento summary", None),
+        ("assistant", "Evidence-based answer.", trace),
+    ]
+    at.run()
+    assert not at.exception
+    rendered = "\n".join(element.value for element in at.markdown)
+    captions = "\n".join(element.value for element in at.caption)
+    assert "Evidence panel" in rendered and "Caveats carried into the answer" in rendered
+    assert "snapshot · 2026-09-30" in rendered
+    assert "Question → agent → gateway tools → deterministic trust → FHIR evidence → answer" in captions
+    assert "Observation/Obs-Benevento" in captions
