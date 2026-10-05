@@ -73,3 +73,34 @@ def test_write_bundle_is_valid_fhir_r4():
     from fhir.resources.R4B.bundle import Bundle
     d = tools.draft_citizen_observation("Loc-Almyros", "waterTemperature", "warm, cloudy", 18.5, "Cel")
     Bundle.model_validate(tools.approve_draft(d["draft_id"], confirmed_by_human=True)["bundle"])
+
+
+def test_nvidia_agent_loop_calls_gateway_tools():
+    """Drives the NVIDIA (OpenAI-compatible) tool loop with a fake client."""
+    from types import SimpleNamespace as NS
+
+    from oah_gateway.agent import run_agent_nvidia
+
+    class FakeCompletions:
+        def __init__(self):
+            self.calls = []
+
+        def create(self, **kw):
+            self.calls.append(kw)
+            if len(self.calls) == 1:
+                tc = NS(id="call_1", type="function",
+                        function=NS(name="one_health_snapshot", arguments='{"city": "Benevento"}'))
+                msg = NS(content=None, tool_calls=[tc])
+            else:
+                assert kw["messages"][-1]["role"] == "tool"
+                msg = NS(content="NO2 exceeded the WHO guideline [Observation/Obs-Benevento01-No2-2019].",
+                         tool_calls=None)
+            return NS(choices=[NS(message=msg)])
+
+    fake = NS(chat=NS(completions=FakeCompletions()))
+    trace = []
+    answer, msgs = run_agent_nvidia("One Health summary for Benevento", [], trace, client=fake)
+    assert "Observation/" in answer
+    assert trace[0][0] == "one_health_snapshot" and "domains" in trace[0][2]
+    sent = fake.chat.completions.calls[0]
+    assert sent["tools"][0]["type"] == "function" and msgs[0]["role"] == "system"

@@ -59,6 +59,7 @@ From the sandbox snapshot of 2026-09-30 (reproduce with `pytest`):
 
 - **450 observations**, 385 official (IG example instances), 65 written by third parties.
 - **120 DO_NOT_USE**: all in the Crete (Almyros/Giofyros) water-chemistry summaries. Average, minimum and maximum are often exactly 10⁴ × the median (e.g. pH average 75,900, median 7.59), consistent with a lost decimal separator during conversion. The gateway labels this a hypothesis, never corrects it.
+- **210 CAUTION**: usable with a stated caveat. Mostly community-health indicators whose IG definition says 'per 100,000 inhabitants' while values are published in %, plus records written to the shared sandbox by third parties and PM2.5 > PM10 pairs.
 - **PM2.5 above PM10** for the same Benevento site and year (impossible, since PM2.5 is part of PM10): flagged `CAUTION` on both records.
 - **Health indicators** are defined in the IG as cases per 100,000 inhabitants but published in %: flagged `CAUTION` with a reading note.
 - Benevento air quality 2019: NO₂, PM10 and PM2.5 annual means are above the WHO 2021 guideline at nearly every monitoring site. A clear One Health signal an agent can now report with sources.
@@ -82,7 +83,7 @@ Requires Python 3.10+.
 
 ```bash
 pip install -r requirements.txt
-pytest -q                                   # 10 tests, offline
+pytest -q                                   # 11 tests, offline
 streamlit run app.py                        # web console (http://localhost:8501)
 python -m oah_gateway.server                # MCP server over stdio
 python -m oah_gateway.server --http         # MCP over HTTP at http://localhost:8765/mcp
@@ -94,8 +95,11 @@ Environment variables:
 |---|---|---|
 | `OAH_FHIR_BASE` | `https://sandbox.hl7europe.eu/oneaquahealth/fhir` | FHIR server implementing the OAH IG to read from (and write to, if enabled) |
 | `OAH_SOURCE` | `auto` | `live` (sandbox), `snapshot` (bundled copy) or `auto` (live, fall back to snapshot) |
-| `ANTHROPIC_API_KEY` | – | Enables the chat agent in the web console |
-| `OAH_AGENT_MODEL` | `claude-sonnet-5-5` | Model for the console agent |
+| `NVIDIA_API_KEY` | – | From [build.nvidia.com](https://build.nvidia.com); enables the chat agent in the web console |
+| `NVIDIA_MODEL` | `meta/llama-3.3-70b-instruct` | Model for the console agent (NVIDIA API) |
+| `NVIDIA_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NVIDIA OpenAI-compatible endpoint |
+| `ANTHROPIC_API_KEY` | – | Fallback provider for the chat agent, used when `NVIDIA_API_KEY` is not set |
+| `OAH_AGENT_MODEL` | `claude-sonnet-5-5` | Anthropic model for the console agent |
 | `OAH_ALLOW_WRITE` | off | Set to `1` to allow approved drafts to be POSTed to the sandbox |
 
 ### Connect Claude Desktop
@@ -158,4 +162,4 @@ Comparisons use a tolerance of half a unit of the least precise published decima
 
 ## AI assistance disclosure
 
-Built with help from an AI coding assistant (Claude, by Anthropic) under human direction. In the product, AI never decides a trust verdict; it only reads the deterministic results through the MCP tools.
+Built with help from an AI coding assistant (Claude, by Anthropic) under human direction. In the product, AI never decides a trust verdict; it only reads the deterministic results through the MCP tools. The web console's chat agent runs on an NVIDIA-hosted open model via [build.nvidia.com](https://build.nvidia.com) (or Claude as a fallback) and only reads tool results.

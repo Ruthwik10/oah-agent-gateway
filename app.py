@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from oah_gateway import source, tools
-from oah_gateway.server import INSTRUCTIONS, mcp
+from oah_gateway.server import mcp
 
 st.set_page_config(page_title="OAH Agent Gateway", page_icon="💧", layout="wide")
 
@@ -54,41 +54,7 @@ tab_agent, tab_city, tab_record, tab_citizen, tab_connect = st.tabs(
     ["🤖 Ask an agent", "🌍 One Health by city", "🔎 Record inspector", "📝 Citizen report → FHIR", "🔌 Connect your agent"])
 
 # ---------------------------------------------------------------- agent
-TOOL_FUNCS = {
-    "data_overview": tools.data_overview, "list_indicators": tools.list_indicators,
-    "get_indicator": tools.get_indicator, "one_health_snapshot": tools.one_health_snapshot,
-    "check_record": tools.check_record, "explain_indicator": tools.explain_indicator,
-    "draft_citizen_observation": tools.draft_citizen_observation,
-}
-
-
-@st.cache_resource
-def tool_schemas():
-    # Same tool definitions the MCP server publishes, so the console agent and external agents match.
-    ts = asyncio.run(mcp.list_tools())
-    return [{"name": t.name, "description": t.description, "input_schema": t.inputSchema}
-            for t in ts if t.name in TOOL_FUNCS]
-
-
-def run_agent(question: str, history: list[dict], trace: list):
-    import anthropic
-    client = anthropic.Anthropic()
-    model = os.environ.get("OAH_AGENT_MODEL", "claude-sonnet-5-5")
-    msgs = history + [{"role": "user", "content": question}]
-    for _ in range(10):
-        resp = client.messages.create(model=model, max_tokens=2000, system=INSTRUCTIONS,
-                                      tools=tool_schemas(), messages=msgs)
-        msgs.append({"role": "assistant", "content": resp.content})
-        if resp.stop_reason != "tool_use":
-            return "".join(b.text for b in resp.content if b.type == "text"), msgs
-        results = []
-        for b in resp.content:
-            if b.type == "tool_use":
-                out = TOOL_FUNCS[b.name](**b.input)
-                trace.append((b.name, b.input, out))
-                results.append({"type": "tool_result", "tool_use_id": b.id, "content": json.dumps(out, default=str)[:60000]})
-        msgs.append({"role": "user", "content": results})
-    return "Stopped after 10 tool rounds.", msgs
+from oah_gateway.agent import NVIDIA_MODEL, agent_provider, run_agent  # noqa: E402
 
 
 with tab_agent:
@@ -98,9 +64,13 @@ with tab_agent:
                 "Is the Almyros river in Crete safe to swim in, based on the water chemistry?",
                 "Which Crete water records can I trust, and why are the others excluded?",
                 "Compare obesity across age groups in Oslo."]
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        st.info("Set ANTHROPIC_API_KEY to chat here. Without a key, use the other tabs, or connect Claude Desktop "
-                "or any MCP client to the gateway (see 'Connect your agent').")
+    provider = agent_provider()
+    if provider is None:
+        st.info("Set NVIDIA_API_KEY (from build.nvidia.com) to chat here. Without a key, use the other tabs, or "
+                "connect Claude Desktop or any MCP client to the gateway (see 'Connect your agent').")
+    else:
+        st.caption(f"Agent model: {NVIDIA_MODEL if provider == 'nvidia' else os.environ.get('OAH_AGENT_MODEL', 'claude-sonnet-5-5')} "
+                   f"via {'NVIDIA API (build.nvidia.com)' if provider == 'nvidia' else 'Anthropic API'}")
     if "chat" not in st.session_state:
         st.session_state.chat, st.session_state.msgs = [], []
     cols = st.columns(len(examples))
@@ -117,7 +87,7 @@ with tab_agent:
                         st.json(out, expanded=False)
             st.markdown(text)
     q = st.chat_input("Ask about water, air or population health in the OAH cities…") or clicked
-    if q and os.environ.get("ANTHROPIC_API_KEY"):
+    if q and agent_provider():
         with st.chat_message("user"):
             st.markdown(q)
         trace: list = []
