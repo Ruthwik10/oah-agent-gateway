@@ -44,6 +44,16 @@ st.markdown(
            display:flex;flex-direction:column;justify-content:center;min-height:82px}
 .arch-box strong {color:#0b4f6c}.arch-box.gateway {border:2px solid #14919b;background:#eefbfb}
 .arch-arrow {display:flex;align-items:center;color:#087f8c;font-size:1.35rem;font-weight:800}
+.platform-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:.7rem 0 1rem}
+.platform-card {border:1px solid #b7dbe0;border-radius:14px;padding:1rem 1.1rem;background:#f7fcfc;color:#243b53}
+.platform-card strong {display:block;color:#0b4f6c;font-size:1.02rem;margin-bottom:.25rem}
+.platform-flow {font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#087f8c;font-weight:750;margin-bottom:.4rem}
+.principle-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem;margin:.65rem 0 1rem}
+.principle {border:1px solid #d9e2ec;border-radius:12px;padding:.8rem;background:white;color:#486581;font-size:.88rem}
+.principle strong {display:block;color:#102a43;margin-bottom:.25rem}
+.demo-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin:.4rem 0}
+.demo-step {border:1px solid #c9dce2;border-radius:13px;padding:.85rem;background:#fff;color:#486581}
+.demo-step strong {display:block;color:#0b4f6c;margin-bottom:.3rem}
 .trust-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin:.6rem 0}
 .trust-cell {border:1px solid #d9e2ec;border-radius:12px;padding:.8rem;background:#fff;min-height:82px}
 .trust-label {font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#627d98;font-weight:700}
@@ -58,7 +68,7 @@ div[data-testid="stMetric"] {background:#f8fbfc;border:1px solid #d9e2ec;padding
 div[data-testid="stMetric"] * {color:#102a43}
 div[data-testid="stExpander"] {border-color:#d9e2ec}
 @media(max-width:900px){.arch{grid-template-columns:1fr}.arch-arrow{justify-content:center;transform:rotate(90deg)}
-                         .trust-grid{grid-template-columns:1fr}.hero h1{font-size:2rem}}
+                         .platform-grid,.principle-grid,.demo-grid,.trust-grid{grid-template-columns:1fr}.hero h1{font-size:2rem}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -166,6 +176,47 @@ def render_evidence_panel(trace: list) -> None:
         if ev["refs"]:
             st.markdown("**FHIR evidence**")
             st.caption(" · ".join(ev["refs"][:12]) + (f" · +{len(ev['refs']) - 12} more" if len(ev["refs"]) > 12 else ""))
+            st.markdown("**Answer → evidence → source record**")
+            for ref in ev["refs"][:12]:
+                if not ref.startswith("Observation/"):
+                    st.caption(ref)
+                    continue
+                report = tools.check_record(ref)
+                raw = source.get_store().get("Observation", ref.split("/", 1)[1]) or {}
+                if "error" in report:
+                    st.caption(f"{ref} · source record unavailable in the selected data source")
+                    continue
+                stats = report.get("stats") or {}
+                value = report.get("value")
+                if value is None:
+                    value = stats.get("average")
+                unit = display_unit(report.get("unit"))
+                level = report["trust"]["level"]
+                with st.expander(f"{ref} · {report['indicator']} · {level.replace('_', ' ')}"):
+                    left, middle, right = st.columns(3)
+                    left.markdown(f"**Indicator**  \n{report['indicator']}")
+                    middle.markdown(f"**Published value**  \n{fmt_number(value)} {unit}" if value is not None else "**Published value**  \nSee source JSON")
+                    right.markdown(f"**Trust verdict**  \n{badge(level)}", unsafe_allow_html=True)
+                    st.caption(
+                        f"{report['city']} · {report.get('location_name') or report.get('location_id')} · "
+                        f"{report['period']} · {report.get('written_by')}"
+                    )
+                    st.markdown("**Deterministic trust reasons / caveats**")
+                    for reason in report["trust"]["reasons"]:
+                        st.markdown(f"- {reason}")
+                    context = report.get("reference")
+                    if context:
+                        st.caption(
+                            f"Reference context: {fmt_number(context.get('value_in_record_unit', context.get('value')))} "
+                            f"{display_unit(context.get('unit'))} · {context.get('source')} · {context.get('note')}"
+                        )
+                    source_info = report.get("source") or {}
+                    st.caption(
+                        f"Source: {source_info.get('mode', 'selected source')} · "
+                        f"{str(source_info.get('fetched_at', ''))[:10]} · {source_info.get('server', '')}"
+                    )
+                    st.markdown("**Raw FHIR JSON**")
+                    st.json(raw, expanded=False)
 
 
 def render_raw_trace(trace: list) -> None:
@@ -328,6 +379,52 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown("#### Bidirectional interoperability")
+st.markdown(
+    """
+<div class="platform-grid">
+  <div class="platform-card">
+    <strong>Safe consumption</strong>
+    <div class="platform-flow">OAH FHIR → Trusted Agent Access</div>
+    Existing standardized evidence passes through deterministic trust checks before an AI agent or MCP client uses it.
+  </div>
+  <div class="platform-card">
+    <strong>Standards-based contribution</strong>
+    <div class="platform-flow">Citizen Observation → Human-approved FHIR</div>
+    AI assists with structure and Provenance; a human explicitly authorizes the resulting FHIR Bundle or write.
+  </div>
+</div>
+<p class="section-note">The gateway supports both safe consumption of existing standardized data and standards-based contribution of new citizen observations.</p>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown("#### Why this is different from a generic AI chatbot")
+st.markdown(
+    """
+<div class="principle-grid">
+  <div class="principle"><strong>Standards-native</strong>Works over OneAquaHealth FHIR resources and IG terminology.</div>
+  <div class="principle"><strong>Deterministic trust</strong>AI does not decide whether evidence is usable.</div>
+  <div class="principle"><strong>Source-preserving</strong>Answers retain FHIR references and caveats.</div>
+  <div class="principle"><strong>Controlled write-back</strong>AI can draft, but humans authorize writes.</div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+with st.expander("Try the 3-minute demo"):
+    st.markdown(
+        """
+<div class="demo-grid">
+  <div class="demo-step"><strong>1 · Catch bad FHIR evidence</strong>Open <b>Record inspector</b> and select <code>Obs-Almyros-TemperatureWater-2013</code>.</div>
+  <div class="demo-step"><strong>2 · Ask a One Health question</strong>In <b>Ask an agent</b>, use the Benevento example to combine air and population-health evidence.</div>
+  <div class="demo-step"><strong>3 · Create a citizen FHIR record</strong>Open <b>Citizen report → FHIR</b>, draft a report, inspect Provenance, then confirm it.</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    st.code("Give me a One Health summary for Benevento: air quality and population health.", language=None)
+
 with st.expander("Standards & safety architecture"):
     st.markdown(
         "**Standards:** `HL7 FHIR R4` · `OneAquaHealth FHIR IG` · `ObservationIndicatorsOah` · "
@@ -338,6 +435,14 @@ with st.expander("Standards & safety architecture"):
     s2.markdown("**Evidence preservation**  \nAnswers retain FHIR references.")
     s3.markdown("**Human-in-the-loop write-back**  \nCitizen data needs explicit approval.")
     s4.markdown("**No patient-level data**  \nPopulation health is aggregated.")
+    st.markdown("**Reusable evidence contract**")
+    st.markdown(
+        "1. Cite FHIR evidence for factual numbers.  \n"
+        "2. Distinguish `OK`, `CAUTION`, and `DO_NOT_USE`.  \n"
+        "3. Never state `DO_NOT_USE` data as trusted fact.  \n"
+        "4. Carry every `CAUTION` caveat into the answer.  \n"
+        "5. Do not infer causation from observational One Health data."
+    )
 
 tab_agent, tab_city, tab_record, tab_citizen, tab_connect = st.tabs(
     ["🤖 Ask an agent", "🌍 One Health by city", "🔎 Record inspector", "📝 Citizen report → FHIR", "🔌 Connect your agent"]
@@ -479,9 +584,14 @@ with tab_citizen:
         st.json(draft["observation"], expanded=False)
 
         st.markdown('<span class="step-label">3</span> **Provenance**', unsafe_allow_html=True)
-        p1, p2 = st.columns(2)
-        p1.markdown('<div class="role-card"><strong>Citizen</strong><br>FHIR role: author</div>', unsafe_allow_html=True)
-        p2.markdown('<div class="role-card"><strong>OAH Agent Gateway / AI</strong><br>FHIR role: assembler</div>', unsafe_allow_html=True)
+        p1, p2, p3 = st.columns(3)
+        p1.markdown('<div class="role-card"><strong>Citizen = author</strong><br>The person remains the source of the observation.</div>', unsafe_allow_html=True)
+        p2.markdown('<div class="role-card"><strong>OAH Agent Gateway = assembler</strong><br>AI structures the report without impersonating its author.</div>', unsafe_allow_html=True)
+        p3.markdown('<div class="role-card"><strong>Human = approval authority</strong><br>Only explicit confirmation can release the output.</div>', unsafe_allow_html=True)
+        st.caption(
+            "The gateway assists with structuring; it does not impersonate the citizen. Provenance stays attached "
+            "to the generated Observation, and no write occurs without explicit human confirmation."
+        )
         with st.expander("View Provenance JSON"):
             st.json(draft["provenance"])
 
@@ -530,6 +640,18 @@ with tab_connect:
         st.code("python -m oah_gateway.server --http", language="bash")
         st.code("http://localhost:8765/mcp", language=None)
         st.caption("Use `OAH_SOURCE=snapshot` for the reproducible demo or live/auto for the public sandbox.")
+
+    st.markdown("### Bring your own OAH-compatible FHIR server")
+    st.code("OAH_FHIR_BASE=https://your-server.example/fhir", language="bash")
+    st.markdown(
+        "Point the gateway at another server implementing the relevant OneAquaHealth Implementation Guide "
+        "profiles, resources, and terminology to keep the same Python tool and MCP interface. This is an "
+        "extensibility path—not a claim of certified compatibility with arbitrary FHIR servers."
+    )
+    st.caption(
+        "Streamlit is the showcase UI. `oah_gateway/tools.py` is the shared source of truth, MCP exposes the "
+        "same capabilities to external agents, and `OAH_FHIR_BASE` selects the compatible FHIR endpoint."
+    )
 
     st.markdown("#### Eight gateway tools")
     published_tools = asyncio.run(mcp.list_tools())
