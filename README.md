@@ -163,6 +163,4 @@ Comparisons use a tolerance of half a unit of the least precise published decima
 - The bundled snapshot (`data/snapshot/`, retrieved 2026-09-30) is the sha256-verified copy published by [OAH Data Doctor](https://github.com/Unknown1502/OAH-Data-Doctor); the hackathon organizers confirmed on the Devpost discussion board that sandbox data may be included in public repositories. Snapshot data is credited to the OneAquaHealth project and HL7 Europe and is not covered by this repository's licence.
 - Code: MIT (see `LICENSE`).
 
-## AI assistance disclosure
 
-Built with help from an AI coding assistant (Claude, by Anthropic) under human direction. In the product, AI never decides a trust verdict; it only reads the deterministic results through the MCP tools. The web console's chat agent runs on an NVIDIA-hosted open model via [build.nvidia.com](https://build.nvidia.com) (or Claude as a fallback) and only reads tool results.
