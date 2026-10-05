@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "oah-gateway": {
+      "command": "python",
+      "args": ["-m", "oah_gateway.server"],
+      "cwd": "/absolute/path/to/oah-agent-gateway",
+      "env": { "OAH_SOURCE": "auto" }
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+ "snapshot_id": "2026-09-30T09-08-55Z",
+ "source_url": "https://sandbox.hl7europe.eu/oneaquahealth/fhir",
+ "fetched_at": "2026-09-30T09:08:55Z",
+ "completed_at": "2026-09-30T09:11:14Z",
+ "fhir_version": "4.0.1",
+ "server_software": {
+  "name": "HAPI FHIR Server",
+  "version": "8.2.0"
+ },
+ "ig_source": {
+  "repo": "https://github.com/hl7-eu/oah",
+  "commit": "b907cf0869b59d82d9138b3d147fca66f333d911"
+ },
+ "knowledge_version": "c53934ddd2bf3f72",
+ "tool": "oah-data-doctor 0.1.0",
+ "repacked": {
+  "at": "2026-09-30T10:25:33Z",
+  "from_format": "oah-data-doctor-snapshot/1 (one file per resource)",
+  "from_manifest_sha256": "49995f970d8dfa40d6af4b596a7fe6d730ca78ad732d7f948d005dea5f6a1af6",
+  "note": "Same fetched content re-serialised as NDJSON; every resource's canonical sha256 is unchanged."
+ },
+ "format": "oah-data-doctor-snapshot/2 (FHIR bulk-data NDJSON)",
+ "resource_counts": {
+  "Device": 6,
+  "Group": 27,
+  "Library": 18,
+  "Location": 24,
+  "Observation": 450,
+  "Organization": 5,
+  "Provenance": 31
+ },
+ "server_validations": 385,
+ "files": [
+  {
+   "path": "metadata/capability_statement.json",
+   "sha256": "42124f8692828c03524c4b933ae405cc04a314099dd71ee02c9e443e77502d15",
+   "bytes": 1989143
+  },
+  {
+   "path": "metadata/resource_counts.json",
+   "sha256": "39bceec4437fdf9a8b54541bb9a668f374c5772b276c201cdf829e5691243543",
+   "bytes": 673
+  },
+  {
+   "path": "resources/Device.ndjson",
+   "sha256": "ff5efd02713081727d14ad5381fd120130fc7915ca2e28ae5b9d615d97cfa4ad",
+   "bytes": 4667
+  },
+  {
+   "path": "resources/Group.ndjson",
+   "sha256": "ef339c27382288c3e29a16a8befd3ae6364b0dd058a8f871b7625be7692903e5",
+   "bytes": 43967
+  },
+  {
+   "path": "resources/Library.ndjson",
+   "sha256": "569c5b7c59c54b598ca55392c5d4e58b62ec4eeab4447219c6a28f558fc23174",
+   "bytes": 288136
+  },
+  {
+   "path": "resources/Location.ndjson",
+   "sha256": "f73fa0ffce19f091520608198b34cacf98a1d0c2bcbc770a94d684f8f04b38c0",
+   "bytes": 35547
+  },
+  {
+   "path": "resources/Observation.ndjson",
+   "sha256": "5575365d5212137117bb479d5b5681eec6b1f2e2e776c1bd136b2b2a7dbaea5d",
+   "bytes": 1491121
+  },
+  {
+   "path": "resources/Organization.ndjson",
+   "sha256": "907612e93748132db69ea6e90733786a346176542a328244cba74aa7d9a6d4e1",
+   "bytes": 5113
+  },
+  {
+   "path": "resources/Provenance.ndjson",
+   "sha256": "6ffd0dbd604a7d7384f5674325c13effdad9d80d6dd69bdc959a9d430ad8760c",
+   "bytes": 48594
+  },
+  {
+   "path": "validation/Observation.ndjson",
+   "sha256": "f7077e7e5b6967d507b6a5cd0342a40f24d7dbc7490f94825a452c4479ba9d23",
+   "bytes": 270900
+  }
+ ],
+ "manifest_sha256": "a80584b564874cdff9f09b709fae5f9f269cced51f439b38bd09eddba1be7003"
+}
