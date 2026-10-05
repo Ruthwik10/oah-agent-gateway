@@ -102,6 +102,8 @@ Environment variables:
 | `OAH_AGENT_MODEL` | `claude-sonnet-5-5` | Anthropic model for the console agent |
 | `OAH_ALLOW_WRITE` | off | Set to `1` to allow approved drafts to be POSTed to the sandbox |
 
+For reproducible hackathon demos, set `OAH_SOURCE=snapshot`; the public sandbox is shared, so live observation counts can grow. Live and `auto` modes remain available.
+
 ### Connect Claude Desktop
 
 Add to `claude_desktop_config.json` (see `examples/claude_desktop_config.json`):

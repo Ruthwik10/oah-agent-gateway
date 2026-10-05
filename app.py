@@ -98,7 +98,7 @@ with tab_agent:
 
 # ---------------------------------------------------------------- city
 with tab_city:
-    cities = [c for c in ov["cities"] if c != "Community-written"]
+    cities = [c for c in ov["cities"] if c not in {"Community-written", "Unknown"}]
     city = st.radio("City", cities, horizontal=True)
     snap = tools.one_health_snapshot(city)
     locs = []
