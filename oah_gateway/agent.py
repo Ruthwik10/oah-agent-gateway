@@ -33,7 +33,11 @@ def tool_schemas() -> list[dict]:
 
 
 NVIDIA_BASE_URL = os.environ.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "meta/llama-3.3-70b-instruct")
+NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+AGENT_UNAVAILABLE_MESSAGE = (
+    "Agent service is temporarily unavailable. The deterministic One Health, Record Inspector, "
+    "and Citizen → FHIR workflows remain available."
+)
 
 
 def agent_provider() -> str | None:
@@ -54,20 +58,31 @@ def call_tool(name: str, args: dict | None, trace: list) -> str:
     return json.dumps(out, default=str)
 
 
-def run_agent_nvidia(question: str, history: list[dict], trace: list, client=None):
+def run_agent_nvidia(question: str, history: list[dict], trace: list, client=None,
+                     enable_thinking: bool = False):
     """Tool-calling loop over NVIDIA's OpenAI-compatible API (build.nvidia.com)."""
     if client is None:
         from openai import OpenAI
-        client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=os.environ["NVIDIA_API_KEY"])
+        client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=os.environ["NVIDIA_API_KEY"],
+                        timeout=60.0, max_retries=1)
     oa_tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"],
                                                   "parameters": t["input_schema"]}} for t in tool_schemas()]
     msgs = history or [{"role": "system", "content": INSTRUCTIONS}]
     msgs = msgs + [{"role": "user", "content": question}]
     for _ in range(10):
-        resp = client.chat.completions.create(model=NVIDIA_MODEL, messages=msgs, tools=oa_tools,
-                                              tool_choice="auto", temperature=0.2, max_tokens=2000)
+        request = {"model": NVIDIA_MODEL, "messages": msgs, "tools": oa_tools,
+                   "tool_choice": "auto", "temperature": 0.2, "max_tokens": 1400}
+        if "nemotron-3-super" in NVIDIA_MODEL.lower():
+            request.update({"temperature": 1.0, "top_p": 0.95,
+                            "extra_body": {"chat_template_kwargs": {
+                                "enable_thinking": enable_thinking}}})
+        resp = client.chat.completions.create(**request)
+        if not getattr(resp, "choices", None) or not getattr(resp.choices[0], "message", None):
+            raise RuntimeError("NVIDIA returned a malformed chat completion.")
         m = resp.choices[0].message
-        calls = m.tool_calls or []
+        calls = getattr(m, "tool_calls", None) or []
+        if not calls and not (getattr(m, "content", None) or "").strip():
+            raise RuntimeError("NVIDIA returned an empty chat completion.")
         msgs.append({"role": "assistant", "content": m.content or "",
                      **({"tool_calls": [{"id": c.id, "type": "function",
                                          "function": {"name": c.function.name,
@@ -106,6 +121,14 @@ def run_agent_anthropic(question: str, history: list[dict], trace: list):
 
 
 def run_agent(question: str, history: list[dict], trace: list):
-    if agent_provider() == "nvidia":
-        return run_agent_nvidia(question, history, trace)
-    return run_agent_anthropic(question, history, trace)
+    provider = agent_provider()
+    if provider is None:
+        return AGENT_UNAVAILABLE_MESSAGE, history
+    try:
+        if provider == "nvidia":
+            return run_agent_nvidia(question, history, trace)
+        return run_agent_anthropic(question, history, trace)
+    except Exception:
+        # Authentication, rate-limit, timeout, network, unavailable-model, and
+        # malformed-response failures must never crash the judge-facing app.
+        return AGENT_UNAVAILABLE_MESSAGE, history

@@ -17,6 +17,7 @@ def test_impossible_water_temperature_is_blocked():
     assert rep["trust"]["level"] == "DO_NOT_USE"
     assert any("outside its own range" in r for r in rep["trust"]["reasons"])
     assert "10^4" in rep["trust"]["hint"]
+    assert "average=198000" in rep["agent_guidance"]
 
 
 def test_clean_air_record_passes():
@@ -40,6 +41,12 @@ def test_snapshot_never_returns_unsafe_values_as_latest():
     for row in snap["domains"]["water"]["latest_safe_values"]:
         assert "DO_NOT_USE" not in row["trust"]
     assert snap["domains"]["water"]["excluded_as_unsafe"] > 0
+    assert snap["domains"]["water"]["usable_observations"] == 21
+    assert (snap["domains"]["water"]["usable_observations"]
+            + snap["domains"]["water"]["excluded_as_unsafe"] == snap["domains"]["water"]["observations"])
+    assert snap["domains"]["water"]["excluded_examples"][0]["fhir_ref"] == (
+        "Observation/Obs-Almyros-TemperatureWater-2013"
+    )
     assert "cannot establish" in snap["evidence_limits"]
 
 
@@ -82,10 +89,11 @@ def test_write_bundle_is_valid_fhir_r4():
     Bundle.model_validate(tools.approve_draft(d["draft_id"], confirmed_by_human=True)["bundle"])
 
 
-def test_nvidia_agent_loop_calls_gateway_tools():
+def test_nvidia_agent_loop_calls_gateway_tools(monkeypatch):
     """Drives the NVIDIA (OpenAI-compatible) tool loop with a fake client."""
     from types import SimpleNamespace as NS
 
+    from oah_gateway import agent
     from oah_gateway.agent import run_agent_nvidia
 
     class FakeCompletions:
@@ -111,6 +119,17 @@ def test_nvidia_agent_loop_calls_gateway_tools():
     assert trace[0][0] == "one_health_snapshot" and "domains" in trace[0][2]
     sent = fake.chat.completions.calls[0]
     assert sent["tools"][0]["type"] == "function" and msgs[0]["role"] == "system"
+    assert sent["model"] == "nvidia/nemotron-3-super-120b-a12b"
+    assert sent["temperature"] == 1.0 and sent["top_p"] == 0.95
+    assert sent["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
+
+    def provider_failure(*_args, **_kwargs):
+        raise TimeoutError("simulated provider timeout")
+
+    monkeypatch.setenv("NVIDIA_API_KEY", "test-placeholder")
+    monkeypatch.setattr(agent, "run_agent_nvidia", provider_failure)
+    safe_answer, safe_history = agent.run_agent("question", [], [])
+    assert safe_answer == agent.AGENT_UNAVAILABLE_MESSAGE and safe_history == []
 
 
 def test_streamlit_judge_view_renders_snapshot_and_trust_trace():

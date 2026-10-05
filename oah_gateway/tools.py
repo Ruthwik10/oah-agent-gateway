@@ -74,9 +74,10 @@ def data_overview() -> dict:
         "official_observations": sum(r.official for r in recs),
         "trust_summary": dict(trust),
         "cities": {c: dict(d) for c, d in sorted(by_city.items())},
-        "how_to_use": "Call list_indicators(city) next, then get_indicator(city, code). OK values can be quoted; "
-                      "CAUTION values only with their caveat; never quote DO_NOT_USE values as facts. "
-                      "Cite the fhir_ref of every number.",
+        "how_to_use": "Choose the next tool from the question: one_health_snapshot(city) for city summaries "
+                      "or trust/exclusion evidence, get_indicator(city, code) for one indicator, and "
+                      "check_record(observation_id) for one record. OK values can be quoted; CAUTION values "
+                      "only with their caveat; never quote DO_NOT_USE values as facts.",
     }
 
 
@@ -100,7 +101,12 @@ def list_indicators(city: str | None = None, domain: str | None = None) -> dict:
         row["periods"] = f"{ps[0]}..{ps[-1]}" if len(ps) > 1 else ps[0]
         row["trust"] = dict(row["trust"])
         out.append(row)
-    return {"source": _source(), "count": len(out), "indicators": out}
+    return {
+        "source": _source(), "count": len(out), "indicators": out,
+        "agent_guidance": ("This is an inventory of aggregate counts only: it does not contain record-level "
+                           "FHIR references or deterministic exclusion reasons. For a city trust/exclusion "
+                           "question, call one_health_snapshot(city) before answering."),
+    }
 
 
 def get_indicator(city: str, code: str, include_unsafe: bool = True) -> dict:
@@ -164,13 +170,28 @@ def one_health_snapshot(city: str) -> dict:
                                       "records_above": len(over), "of": len(group),
                                       "max_value": max(headline_value(r) for r in over),
                                       "fhir_refs": [r.fhir_ref for r in over][:6]})
+        # Lead with a physical-plausibility failure when one exists so the compact
+        # evidence sample demonstrates more than repeated statistical-range errors.
+        examples = sorted(
+            flagged,
+            key=lambda r: not any("outside what liquid stream water can be" in reason
+                                  for reason in r.trust.reasons),
+        )[:3]
         out["domains"][dom] = {
-            "observations": len(dr), "excluded_as_unsafe": len(flagged),
-            "excluded_examples": [{"fhir_ref": r.fhir_ref, "why": r.trust.reasons[0]} for r in flagged[:3]],
+            "observations": len(dr), "usable_observations": len(safe),
+            "excluded_as_unsafe": len(flagged),
+            "excluded_examples": [{"fhir_ref": r.fhir_ref, "why": "; ".join(r.trust.reasons)}
+                                  for r in examples],
             "latest_safe_values": summary[:30],
+            "latest_safe_values_note": ("Latest-period examples grouped by indicator, not an exhaustive list "
+                                        "of every usable Observation."),
             "above_reference": above,
         }
     out["evidence_limits"] = EVIDENCE_NOTE
+    out["agent_guidance"] = ("This result is sufficient for a city summary or trust/exclusion answer. Use its "
+                             "exact fhir_refs and excluded_examples; do not invent references or reasons. "
+                             "latest_safe_values contains latest-period examples, so never call it an exhaustive "
+                             "list of all usable records; use usable_observations for the total.")
     return out
 
 
@@ -181,6 +202,12 @@ def check_record(observation_id: str) -> dict:
         if r.id == oid:
             d = r.to_dict()
             d["source"] = _source()
+            published = d.get("stats") or {}
+            values = ", ".join(f"{name}={value}" for name, value in published.items())
+            d["agent_guidance"] = ("This is the complete deterministic trust report for the record. Explicitly "
+                                   f"state the decisive published values ({values}) with unit {d.get('unit')}; "
+                                   "answer from this report now and do not call other tools unless the user asked "
+                                   "a separate question.")
             return d
     return {"error": f"Observation/{oid} not found."}
 

@@ -96,13 +96,14 @@ Environment variables:
 | `OAH_FHIR_BASE` | `https://sandbox.hl7europe.eu/oneaquahealth/fhir` | FHIR server implementing the OAH IG to read from (and write to, if enabled) |
 | `OAH_SOURCE` | `auto` | `live` (sandbox), `snapshot` (bundled copy) or `auto` (live, fall back to snapshot) |
 | `NVIDIA_API_KEY` | – | From [build.nvidia.com](https://build.nvidia.com); enables the chat agent in the web console |
-| `NVIDIA_MODEL` | `meta/llama-3.3-70b-instruct` | Model for the console agent (NVIDIA API) |
+| `NVIDIA_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | Model for the console agent (NVIDIA API; reasoning disabled for fast demos) |
 | `NVIDIA_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NVIDIA OpenAI-compatible endpoint |
 | `ANTHROPIC_API_KEY` | – | Fallback provider for the chat agent, used when `NVIDIA_API_KEY` is not set |
 | `OAH_AGENT_MODEL` | `claude-sonnet-5-5` | Anthropic model for the console agent |
 | `OAH_ALLOW_WRITE` | off | Set to `1` to allow approved drafts to be POSTed to the sandbox |
 
 For reproducible hackathon demos, set `OAH_SOURCE=snapshot`; the public sandbox is shared, so live observation counts can grow. Live and `auto` modes remain available.
+Local settings are loaded from `.env` through `python-dotenv`; copy `.env.example` and keep the real file untracked.
 
 ### Connect Claude Desktop
 

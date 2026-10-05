@@ -17,12 +17,28 @@ air quality and population-health indicators from the OAH research cities, serve
 HL7 Europe FHIR sandbox and the OAH FHIR Implementation Guide.
 
 Rules for using this data:
-1. Start with data_overview, then list_indicators, then get_indicator or one_health_snapshot.
+1. Choose the most direct tool: use one_health_snapshot for a city summary; for city/domain trust or
+   exclusion questions you MUST call one_health_snapshot before answering (list_indicators is optional
+   inventory context, but has no record references or reasons); use get_indicator for one named
+   indicator; and use check_record directly for a named or specific Observation. Use data_overview only
+   when the available scope is unknown. Do not repeat a tool call with the same arguments.
 2. Every value carries a trust verdict. Quote OK values; quote CAUTION values only with their caveat;
    never state a DO_NOT_USE value as fact (say it failed integrity checks instead).
-3. Cite the fhir_ref (e.g. Observation/Obs-...) for every number you state.
-4. The data is aggregated and observational: describe co-occurrence, never causation.
-5. Never record a citizen observation without the human's explicit confirmation (approve_draft)."""
+3. Cite exact fhir_ref values returned by tools (e.g. Observation/Obs-...) for every number you state.
+   Never abbreviate, invent, or use placeholder references. If the result has no reference for a claim,
+   say that instead of fabricating one.
+4. Use only reasons, counts, caveats, and relationships present in tool output. Never infer a failed
+   schema check, missing provenance, correlation, or trend unless the gateway explicitly reports it.
+   Treat latest_safe_values as latest-period examples, not an exhaustive list of usable Observations.
+   For a record integrity explanation, include the actual published values behind the decisive reasons.
+   When a trust_hint says an explanation is a hypothesis, explicitly call it "hypothesis only, not
+   verified"; never upgrade it to a probable or confirmed correction, and never correct the source value.
+5. The data is aggregated and observational. Indicators available for the same city are co-occurring
+   evidence, not proof of association or causation; call out differing measurement periods when relevant.
+6. As soon as a tool result contains the evidence needed, answer the user. Keep the final answer concise
+   and judge-readable while preserving the decisive trust caveats and
+   exact FHIR references.
+7. Never record a citizen observation without the human's explicit confirmation (approve_draft)."""
 
 mcp = FastMCP("oah-agent-gateway", instructions=INSTRUCTIONS)
 
@@ -36,8 +52,9 @@ def data_overview() -> dict:
 
 @mcp.tool()
 def list_indicators(city: str | None = None, domain: str | None = None) -> dict:
-    """List available indicators. city: e.g. 'Crete', 'Benevento', 'Oslo'.
-    domain: 'water', 'air', 'health' or 'stream-assessment'."""
+    """Inventory indicator names and aggregate trust counts only; this has no record-level FHIR references
+    or exclusion reasons. For city trust/exclusion questions also call one_health_snapshot.
+    city: e.g. 'Crete', 'Benevento', 'Oslo'. domain: 'water', 'air', 'health' or 'stream-assessment'."""
     return tools.list_indicators(city, domain)
 
 
@@ -57,7 +74,8 @@ def one_health_snapshot(city: str) -> dict:
 
 @mcp.tool()
 def check_record(observation_id: str) -> dict:
-    """Full integrity report for one FHIR Observation (id or 'Observation/<id>')."""
+    """Full integrity report for one FHIR Observation (id or 'Observation/<id>'). For the signature
+    Almyros 2013 water-temperature record use Observation/Obs-Almyros-TemperatureWater-2013."""
     return tools.check_record(observation_id)
 
 
